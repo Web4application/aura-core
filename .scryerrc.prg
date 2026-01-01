@@ -1,4 +1,4 @@
-:- use_module(library(arithmetic)).
+ :- use_module(library(arithmetic)).
 :- use_module(library(assoc)).
 :- use_module(library(between)).
 :- use_module(library(charsio)).
