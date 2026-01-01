@@ -129,6 +129,17 @@
   <!-- Footer -->
   <footer>
     <p>Learn more about the <a href="https://www.web4.org/en-US/about/manifesto/">Web4 Manifesto</a></p>
+    import { useForm } from '@formspree/react';
+function SignupForm() {
+  const [state, handleSubmit] = useForm('signupForm');
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="email">Email</label>
+      <input id="email" type="email" name="email" />
+      <button disabled={state.submitting}>Sign up</button>
+    </form>
+  )
+}
   </footer>
 
 </body>
