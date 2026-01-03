@@ -17,3 +17,9 @@ unkpg/
 │
 ├── packaging/
 └── README.md
+```
+## Security Integrations
+
+unkpg includes optional, modular security integrations such as a modern
+SSH askpass helper. These components are disabled by default and designed
+to improve GUI authentication flows without altering OpenSSH behavior.
