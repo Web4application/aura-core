@@ -11,12 +11,6 @@ umask 022
 INFO=$BUILD/build/aix/.info
 mkdir -p $INFO
 
-mkdir new-project
-cd new-project
-git init
-git remote add origin git@github.com:<username>/<repo>.git
-git branch -M main
-
 template=${INFO}/${PKG}.${NAME}.${vrmf}.template
 >$template
 

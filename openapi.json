@@ -1,0 +1,3840 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "NavigaTUM",
+    "description": "Navigating around TUM with excellence – An API to search for rooms,\nbuildings and other places\n\nNavigaTUM is a tool developed by students for students, to help you get around at [TUM](https://tum.de). Feel free to contribute.\n\n- [x] Interactive/static maps to look up the position of rooms or buildings\n- [x] Fast and typo-tolerant search\n- [x] Support for different room code formats as well as generic names\n- [x] All functionality is also available via an open and well documented API\n- [x] Automatically update the data from upstream datasources\n- [x] Allow students/staff to easily submit feedback and data patches\n- [x] Generate turn by turn navigation advice for navigating end to end\n- [ ] Generate maps from CAD data sources\n\nIf you'd like to help out or join us in this adventure, we would love to talk to you.",
+    "termsOfService": "https://nav.tum.de/en/about/privacy",
+    "contact": {
+      "name": "OpenSource @ TUM e.V.",
+      "url": "https://tum.dev/",
+      "email": "navigatum@tum.de"
+    },
+    "license": {
+      "name": "GPL v3",
+      "url": "https://www.gnu.org/licenses/"
+    },
+    "version": "1.0.0",
+    "x-logo": {
+      "altText": null,
+      "backgroundColor": null,
+      "href": "https://nav.tum.de",
+      "url": "https://raw.githubusercontent.com/TUM-Dev/NavigaTUM/refs/heads/main/webclient/app/assets/logos/navigatum.svg"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://nav.tum.de",
+      "description": "production"
+    }
+  ],
+  "paths": {
+    "/api/calendar": {
+      "post": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Retrieve Calendar Entries",
+        "description": "Retrieves calendar entries for specific `ids` within the requested time span.\nThe time span is defined by the `start_after` and `end_before` query parameters.\nEnsure to provide valid date-time formats for these parameters.\n\nIf successful, returns additional entries in the requested time span.",
+        "operationId": "calendar_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Arguments"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "**Entries of the calendar** in the requested time span",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/LocationEventsResponse"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "**Bad Request.** Not all fields in the body are present as defined above",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Too many ids to query. We suspect that users don't need this. If you need this limit increased, please send us a message"
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** The requested location does not have a calendar",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          },
+          "503": {
+            "description": "**Not Ready.** please retry later",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Waiting for first sync with TUMonline"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/feedback": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Post feedback",
+        "description": "***Do not abuse this endpoint.***\n\nThis posts the actual feedback to GitHub and returns the GitHub link.\nThis API will create issues instead of pull-requests\n=> all feedback is allowed, but [`/api/feedback/propose_edits`](#tag/feedback/operation/propose_edits) is preferred, if it can be posted there.\n\nFor this Endpoint to work, you need to generate a token via the [`/api/feedback/get_token`](#tag/feedback/operation/get_token) endpoint.\n\n# Note\n\nTokens are only used if we return a 201 Created response.\nOtherwise, they are still valid",
+        "operationId": "send_feedback",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The feedback has been **successfully posted to GitHub**. We return the link to the GitHub issue.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "example": "https://github.com/TUM-Dev/navigatum/issues/9"
+              }
+            }
+          },
+          "400": {
+            "description": "**Bad Request.** Not all fields in the body are present as defined above"
+          },
+          "403": {
+            "description": "**Forbidden.** Causes are (delivered via the body):\n\n- `Invalid token`: You have not supplied a token generated via the `gen_token`-Endpoint.\n- `Token not old enough, please wait`: Tokens are only valid after 10s.\n- `Token expired`: Tokens are only valid for 12h.\n- `Token already used`: Tokens are non reusable/refreshable single-use items.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "**Unprocessable Entity.** Subject or body missing or too short."
+          },
+          "451": {
+            "description": "**Unavailable for legal reasons.** Using this endpoint without accepting the privacy policy is not allowed. For us to post to GitHub, this has to be `true`"
+          },
+          "500": {
+            "description": "**Internal Server Error.** We have a problem communicating with GitHubs servers. Please try again later"
+          },
+          "503": {
+            "description": "**Service unavailable.** We have not configured a GitHub Access Token. This could be because we are experiencing technical difficulties or intentional. Please try again later."
+          }
+        }
+      }
+    },
+    "/api/feedback/get_token": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Get a feedback-token",
+        "description": "***Do not abuse this endpoint.***\n\nThis returns a JWT token usable for submitting feedback.\nYou should request a token, ***if (and only if) a user is on a feedback page***\n\nAs a rudimentary way of rate-limiting feedback, this endpoint returns a token.\nTo post feedback, you will need this token.\n\nTokens gain validity after 5s, and are invalid after 12h of being issued.\nThey are not refreshable, and are only valid for one usage.\n\n# Note:\n\nGlobal Rate-Limiting allows bursts with up to 20 requests and replenishes 50 requests per day",
+        "operationId": "get_token",
+        "responses": {
+          "201": {
+            "description": "**Created** a usable token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "**Too many requests.** We are rate-limiting everyone's requests, please try again later."
+          },
+          "503": {
+            "description": "**Service unavailable.** We have not configured a GitHub Access Token. This could be because we are experiencing technical difficulties or intentional. Please try again later."
+          }
+        }
+      }
+    },
+    "/api/feedback/propose_edits": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Post Edit-Requests",
+        "description": "***Do not abuse this endpoint.***\n\nThis posts the actual feedback to GitHub and returns the github link.\nThis API will create pull-requests instead of issues => only a subset of feedback is allowed.\nFor this Endpoint to work, you need to generate a token via the [`/api/feedback/get_token`](#tag/feedback/operation/get_token) endpoint.\n\n# Note:\n\nTokens are only used if we return a 201 Created response. Otherwise, they are still valid",
+        "operationId": "propose_edits",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The edit request feedback has been **successfully posted to GitHub**. We return the link to the GitHub issue.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "example": "https://github.com/TUM-Dev/navigatum/issues/9"
+              }
+            }
+          },
+          "400": {
+            "description": "**Bad Request.** Not all fields in the body are present as defined above"
+          },
+          "403": {
+            "description": "**Forbidden.** Causes are (delivered via the body):\n\n- `Invalid token`: You have not supplied a token generated via the `gen_token`-Endpoint.\n- `Token not old enough, please wait`: Tokens are only valid after 10s.\n- `Token expired`: Tokens are only valid for 12h.\n- `Token already used`: Tokens are non reusable/refreshable single-use items."
+          },
+          "422": {
+            "description": "**Unprocessable Entity.** Subject or body missing or too short."
+          },
+          "451": {
+            "description": "**Unavailable for legal reasons.** Using this endpoint without accepting the privacy policy is not allowed. For us to post to GitHub, this has to be true"
+          },
+          "500": {
+            "description": "**Internal Server Error.** We have a problem communicating with GitHubs servers. Please try again later."
+          },
+          "503": {
+            "description": "Service unavailable. We have not configured a GitHub Access Token. This could be because we are experiencing technical difficulties or intentional. Please try again later."
+          }
+        }
+      }
+    },
+    "/api/locations/{id}": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "Get entry-details",
+        "description": "This returns the full data available for the entry (room/building).\n\nThis is more data, that should be supplied once a user clicks on an entry.\nPreloading this is not an issue on our end, but keep in mind bandwith constraints on your side.\nThe data can be up to 50kB (using gzip) or 200kB unzipped.\nMore about this data format is described in the NavigaTUM-data documentation",
+        "operationId": "get_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID of the location",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "The language you want your preview to be in. If either this or the query parameter is set to en, this will be delivered.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "de",
+                "en"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "**Details** about the **location**",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDetailsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "**Bad request.** Make sure that requested item ID is not empty and not longer than 255 characters",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Invalid ID"
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** Make sure that requested item exists",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/locations/{id}/nearby": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "Get the nearby items",
+        "description": "Shows nearby POIs like public transport stations",
+        "operationId": "nearby_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID of a location",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Things **nearby to the location**",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NearbyLocationsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "**Bad request.** Make sure that requested item ID is not empty and not longer than 255 characters",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Invalid ID"
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** Make sure that requested item exists",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/locations/{id}/preview": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "Get a entry-preview",
+        "description": "This returns a 1200x630px preview for the location (room/building/..).\n\nThis is usefully for implementing custom OpenGraph images for detail previews.",
+        "operationId": "maps_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "de",
+                "en"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open_graph",
+                "square"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "**Preview image**",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "400": {
+            "description": "**Bad request.** Make sure that requested item ID is not empty and not longer than 255 characters",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Invalid ID"
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** Make sure that requested item exists",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/locations/{id}/qr-code": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "Get a QR code for a location",
+        "description": "This returns a QR code image (PNG) that links to the location's detail page.\nThe QR code uses TUM blue (#0065bd) as foreground color with white background and rounded corners.",
+        "operationId": "qr_code_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "**QR code image**",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "400": {
+            "description": "**Bad request.** Make sure that requested item ID is not empty and not longer than 255 characters",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Invalid ID"
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** Make sure that requested item exists",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          },
+          "500": {
+            "description": "**Internal server error**",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/maps/route": {
+      "get": {
+        "tags": [
+          "maps"
+        ],
+        "summary": "Routing requests",
+        "description": "**API IS EXPERIMENTAL AND ACTIVELY SUBJECT TO CHANGE**\n\nThe user specifies using provided origin (`from`) and destination (`to`) locations and a transport mode (`route_costing`) to tune their routing between the two locations.\nThe costing is fine-tuned by the server side accordingly.\n\nInternally, this endpoint relies on\n- [Valhalla](https://github.com/valhalla/valhalla) for routing for route calculation\n- our database to resolve ids.\n\n  You will need to look the ids up via [`/api/search`](#tag/locations/operation/search_handler) beforehand.\n  **Note:** [`/api/search`](#tag/locations/operation/search_handler) does support both university internal routing and external addressing.\n\n**In the future (i.e. public transit routing currently is not implemented)**, it will als rely on either\n- [OpenTripPlanner2](https://www.opentripplanner.org/) or\n- [Motis](https://github.com/motis-project/motis)",
+        "operationId": "route_handler",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "de",
+                "en"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the route",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Coordinate",
+                  "description": "Either an\n- external address which was looked up or\n- the users current location"
+                },
+                {
+                  "type": "string",
+                  "description": "Our (uni internal) key for location identification"
+                }
+              ]
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Destination of the route",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Coordinate",
+                  "description": "Either an\n- external address which was looked up or\n- the users current location"
+                },
+                {
+                  "type": "string",
+                  "description": "Our (uni internal) key for location identification"
+                }
+              ]
+            }
+          },
+          {
+            "name": "route_costing",
+            "in": "query",
+            "description": "Transport mode the user wants to use\n\nIf not specified, the default is based on how far the destinations are apart and requested time.",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "description": "Transport mode the user wants to use",
+                  "enum": [
+                    "pedestrian",
+                    "bicycle",
+                    "motorcycle",
+                    "car",
+                    "public_transit"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "pedestrian_type",
+            "in": "query",
+            "description": "Does the user have specific walking restrictions?",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Does the user have specific walking needs?",
+              "enum": [
+                "standard",
+                "blind",
+                "wheelchair"
+              ]
+            }
+          },
+          {
+            "name": "ptw_type",
+            "in": "query",
+            "description": "Does the user prefer mopeds or motorcycles for powered two-wheeled (ptw)?",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Does the user have a moped or motorcycle",
+              "enum": [
+                "motorcycle",
+                "moped"
+              ]
+            }
+          },
+          {
+            "name": "bicycle_type",
+            "in": "query",
+            "description": "Which kind of bicycle do you ride?",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Which kind of bicycle do you ride?",
+              "enum": [
+                "road",
+                "hybrid",
+                "cross",
+                "mountain"
+              ]
+            }
+          },
+          {
+            "name": "page_cursor",
+            "in": "query",
+            "description": "Cursor position for pagination\nOnly avaliable for some costings",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "time",
+            "in": "query",
+            "description": "Time for the route (ISO 8601 format)\nUsed with arrive_by to determine if this is departure or arrival time",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "arrive_by",
+            "in": "query",
+            "description": "Whether the time parameter represents arrival time (true) or departure time (false/not set)",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "**Routing solution**",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** The requested location does not exist",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "summary": "Openapi service definition",
+        "description": "Usefull for consuming in external openapi tooling",
+        "operationId": "openapi_doc",
+        "responses": {
+          "200": {
+            "description": "The openapi definition",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "Search entries",
+        "description": "This endpoint is designed to support search-as-you-type results.\n\nInstead of simply returning a list, the search results are returned in a way to provide a richer experience by splitting them up into sections. You might not necessarily need to implement all types of sections, or all sections features (if you just want to show a list). The order of sections is a suggested order to display them, but you may change this as you like.\n\nSome fields support highlighting the query terms and it uses \\x19 and \\x17 to mark the beginning/end of a highlighted sequence.\n(See [Wikipedia](https://en.wikipedia.org/wiki/C0_and_C1_control_codes#Modified_C0_control_code_sets)).\nSome text-renderers will ignore them, but in case you do not want to use them, you might want to remove them from the responses via empty `pre_highlight` and `post_highlight` query parameters.",
+        "operationId": "search_handler",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "string you want to search for.\n\nThe amounts returned can be controlled using the `limit\\*` paramerters.\n\nThe following query-filters are supported:\n- `in:<parent>`/`@<parent>`: Only return rooms in the given parent (e.g. `in:5304` or `in:garching`)\n- `usage:<type>`/`nutzung:<usage>`/`=<usage>`: Only return entries of the given usage (e.g. `usage:wc` or `usage:büro`)\n- `type:<type>`: Only return entries of the given type (e.g. `type:building` or `type:room`)\n- `near:<lat>,<lon>`: prioritise sorting the entries by distance to a coordinate",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_addresses",
+            "in": "query",
+            "description": "Include adresses in the saerch\n\nBe aware that Nominatim (which we use to do this search) is really slow (~100ms).\nOnly activate this when you really need it.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit_buildings",
+            "in": "query",
+            "description": "Maximum number of buildings/sites to return.\n\nClamped to `0`..`1000`.\nIf this is a problem for you, please open an issue.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit_rooms",
+            "in": "query",
+            "description": "Maximum number of rooms to return.\n\nClamped to `0`..`1000`.\nIf this is an problem for you, please open an issue.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit_all",
+            "in": "query",
+            "description": "Maximum number of results to return.\n\nClamped to `1`..`1000`.\nIf this is an problem for you, please open an issue.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          {
+            "name": "pre_highlight",
+            "in": "query",
+            "description": "string to include in front of highlighted sequences.\n\nIf this and `post_highlight` are empty, highlighting is disabled.\nFor background on the default values, please see [Wikipedia](https://en.wikipedia.org/wiki/C0_and_C1_control_codes#Modified_C0_control_code_sets)).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "post_highlight",
+            "in": "query",
+            "description": "string to include after the highlighted sequences.\n\nIf this and `pre_highlight` are empty, highlighting is disabled.\nFor background on the default values, please see [Wikipedia](https://en.wikipedia.org/wiki/C0_and_C1_control_codes#Modified_C0_control_code_sets)).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "cropping",
+            "in": "query",
+            "description": "How to handle cropping of long building names in `parsed_id`.\n\n- `crop` (default): crop long names (> 25 chars) with an ellipsis.\n- `full`: never crop; always show full building names.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Controls whether long building names inside `parsed_id` are cropped.",
+              "enum": [
+                "crop",
+                "full"
+              ]
+            }
+          },
+          {
+            "name": "parsed_id",
+            "in": "query",
+            "description": "How to format `parsed_id` for rooms.\n\n- `prefixed` (default): add common building prefixes (e.g. `MW 1801`).\n- `roomfinder`: return room codes in Roomfinder format (`archname@building_id`).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Controls how `parsed_id` is built for room results.",
+              "enum": [
+                "prefixed",
+                "roomfinder"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "**Bad Request.** Not all fields in the body are present as defined above",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Query deserialize error: invalid digit found in string"
+              }
+            }
+          },
+          "404": {
+            "description": "**Not found.** `q` is empty. Since searching for nothing is nonsensical, we dont support this.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Not found"
+              }
+            }
+          },
+          "414": {
+            "description": "**URI Too Long.** The uri you are trying to request is unreasonably long. Search querys dont have thousands of chars..",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "API healthcheck",
+        "description": "If this endpoint does not return 200, the API is experiencing a catastrophic outage.\n**Should never happen.**",
+        "operationId": "health_status_handler",
+        "responses": {
+          "200": {
+            "description": "API is **healthy**",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "healthy\nsource_code: https://github.com/TUM-Dev/navigatum/tree/{hash}"
+              }
+            }
+          },
+          "503": {
+            "description": "API is **NOT healthy**",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "unhealthy\nsource_code: https://github.com/TUM-Dev/navigatum/tree/{hash}"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AlertCauseResponse": {
+        "type": "string",
+        "enum": [
+          "unknown_cause",
+          "other_cause",
+          "technical_problem",
+          "strike",
+          "demonstration",
+          "accident",
+          "holiday",
+          "weather",
+          "maintenance",
+          "construction",
+          "police_activity",
+          "medical_emergency"
+        ]
+      },
+      "AlertEffectResponse": {
+        "type": "string",
+        "enum": [
+          "no_service",
+          "reduced_service",
+          "significant_delays",
+          "detour",
+          "additional_service",
+          "modified_service",
+          "other_effect",
+          "unknown_effect",
+          "stop_moved",
+          "no_effect",
+          "accessibility_issue"
+        ]
+      },
+      "AlertResponse": {
+        "type": "object",
+        "required": [
+          "description_text",
+          "header_text"
+        ],
+        "properties": {
+          "cause": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AlertCauseResponse"
+              }
+            ]
+          },
+          "cause_detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Description of the cause of the alert that allows for\n agency-specific language; more specific than the Cause."
+          },
+          "description_text": {
+            "type": "string",
+            "description": "Description for the alert.\nThis plain-text string will be formatted as the body of the alert\n (or shown on an explicit \"expand\" request by the user).\n The information in the description should add to the information of\n the header."
+          },
+          "effect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AlertEffectResponse"
+              }
+            ]
+          },
+          "effect_detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Description of the effect of the alert that allows for\n agency-specific language; more specific than the Effect."
+          },
+          "header_text": {
+            "type": "string",
+            "description": "Header for the alert. This plain-text string will be highlighted,\n for example in boldface."
+          },
+          "image_alternative_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text describing the appearance of the linked image in the image\n field (e.g., in case the image can't be displayed or the\n user can't see the image for accessibility reasons). See the\n HTML spec for alt image text."
+          },
+          "image_media_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IANA media type as to specify the type of image to be displayed. The\n type must start with \"image/\""
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "String containing an URL linking to an image."
+          },
+          "severity_level": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AlertSeverityLevelResponse"
+              }
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The URL which provides additional information about the alert."
+          }
+        }
+      },
+      "AlertSeverityLevelResponse": {
+        "type": "string",
+        "enum": [
+          "unknown",
+          "info",
+          "warning",
+          "severe"
+        ]
+      },
+      "Arguments": {
+        "type": "object",
+        "required": [
+          "ids",
+          "start_after",
+          "end_before"
+        ],
+        "properties": {
+          "end_before": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The last allowed time the calendar would like to display",
+            "examples": [
+              "2039-01-19T03:14:07+01:00",
+              "2042-01-07T00:00:00 UTC"
+            ]
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "ids you want the calendars for\n\nLimit of max. 10 ids is arbitraryly chosen, if you need this limit increased, please contact us",
+            "example": [
+              "5605.EG.011",
+              "5510.02.001",
+              "5606.EG.036",
+              "5304"
+            ],
+            "maxItems": 10,
+            "minItems": 1
+          },
+          "start_after": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The first allowed time the calendar would like to display",
+            "examples": [
+              "2039-01-19T03:14:07+01:00",
+              "2042-01-07T00:00:00 UTC"
+            ]
+          }
+        }
+      },
+      "BuildingsOverviewItemResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "subtext"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The id of the entry"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human display name"
+          },
+          "subtext": {
+            "type": "string",
+            "description": "What should be displayed below this Building"
+          },
+          "thumb": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The thumbnail for the building"
+          }
+        }
+      },
+      "BuildingsOverviewResponse": {
+        "type": "object",
+        "required": [
+          "entries",
+          "n_visible"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BuildingsOverviewItemResponse"
+            }
+          },
+          "n_visible": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "CalendarLocationResponse": {
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "last_calendar_scrape_at",
+          "type_common_name",
+          "type"
+        ],
+        "properties": {
+          "calendar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Link to the calendar of the room",
+            "examples": [
+              "https://campus.tum.de/tumonline/tvKalender.wSicht?cOrg=19691&cRes=12543&cReadonly=J",
+              "https://campus.tum.de/tumonline/tvKalender.wSicht?cOrg=19691&cRes=12559&cReadonly=J"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "Structured, globaly unique room code\n\nIncluded to enable multi-room calendars.\nFormat: BUILDING.LEVEL.NUMBER",
+            "examples": [
+              "5602.EG.001",
+              "5121.EG.003"
+            ]
+          },
+          "last_calendar_scrape_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "last time the calendar was scraped for this room",
+            "examples": [
+              "2039-01-19T03:14:07+01:00",
+              "2042-01-07T00:00:00 UTC"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "name of the entry in a human-readable form",
+            "examples": [
+              "5602.EG.001 (MI HS 1, Friedrich L. Bauer Hörsaal)",
+              "5121.EG.003 (Computerraum)"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "description": "type of the entry\n\nTODO document as a n enum with the following choices:\n- `room`\n- `building`\n- `joined_building`\n- `area`\n- `site`\n- `campus`\n- `poi`",
+            "examples": [
+              "room",
+              "building",
+              "joined_building",
+              "area",
+              "site",
+              "campus",
+              "poi"
+            ]
+          },
+          "type_common_name": {
+            "type": "string",
+            "description": "Type of the entry in a human-readable form",
+            "examples": [
+              "Serverraum",
+              "Büro"
+            ]
+          }
+        }
+      },
+      "ComputedPropResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "text"
+        ],
+        "properties": {
+          "extra": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ExtraComputedPropResponse"
+              }
+            ]
+          },
+          "name": {
+            "type": "string",
+            "examples": [
+              "Raumkennung"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "examples": [
+              "5602.EG.001"
+            ]
+          }
+        }
+      },
+      "Coordinate": {
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Latitude",
+            "example": 48.26244490906312
+          },
+          "lon": {
+            "type": "number",
+            "format": "double",
+            "description": "Longitude",
+            "example": 48.26244490906312
+          }
+        }
+      },
+      "CoordinateAccuracyResponse": {
+        "type": "string",
+        "enum": [
+          "building"
+        ]
+      },
+      "CoordinateResponse": {
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "source"
+        ],
+        "properties": {
+          "accuracy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateAccuracyResponse",
+                "description": "How accurate the coordinate is.\nOnly present, if it is limited to a degree (e.g. we only know the building)"
+              }
+            ]
+          },
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Latitude",
+            "example": 48.26244490906312
+          },
+          "lon": {
+            "type": "number",
+            "format": "double",
+            "description": "Longitude",
+            "example": 48.26244490906312
+          },
+          "source": {
+            "$ref": "#/components/schemas/CoordinateSourceResponse",
+            "description": "Source of the Coordinates"
+          }
+        }
+      },
+      "CoordinateSourceResponse": {
+        "type": "string",
+        "enum": [
+          "navigatum",
+          "roomfinder",
+          "inferred"
+        ]
+      },
+      "DefaultMapsResponse": {
+        "type": "string",
+        "enum": [
+          "interactive",
+          "roomfinder"
+        ]
+      },
+      "DirectionResponse": {
+        "type": "string",
+        "enum": [
+          "depart",
+          "hard_left",
+          "left",
+          "slightly_left",
+          "continue",
+          "slightly_right",
+          "right",
+          "hard_right",
+          "circle_clockwise",
+          "circle_counterclockwise",
+          "stairs",
+          "elevator",
+          "uturn_left",
+          "uturn_right"
+        ]
+      },
+      "EditRequest": {
+        "type": "object",
+        "required": [
+          "token",
+          "edits",
+          "additional_context",
+          "privacy_checked"
+        ],
+        "properties": {
+          "additional_context": {
+            "type": "string",
+            "description": "Additional context for the edit.\n\nWill be displayed in the discription field of the PR",
+            "example": "I have a picture of the room, please add it to the roomfinder"
+          },
+          "edits": {
+            "$ref": "#/components/schemas/LimitedHashMap_String_Edit",
+            "description": "The edits to be made to the room. The keys are the ID of the props to be edited, the values are the proposed Edits."
+          },
+          "privacy_checked": {
+            "type": "boolean",
+            "description": "Whether the user has checked the privacy-checkbox.\n\nWe are posting the feedback publicly on GitHub (not a EU-Company).\n**You MUST also include such a checkmark.**"
+          },
+          "token": {
+            "type": "string",
+            "description": "The JWT token, that can be used to generate feedback",
+            "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2Njk2MzczODEsImlhdCI6MTY2OTU5NDE4MSwibmJmIjoxNjY5NTk0MTkxLCJraWQiOjE1ODU0MTUyODk5MzI0MjU0Mzg2fQ.sN0WwXzsGhjOVaqWPe-Fl5x-gwZvh28MMUM-74MoNj4"
+          }
+        }
+      },
+      "EventResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "room_code",
+          "start_at",
+          "end_at",
+          "title_de",
+          "title_en",
+          "entry_type",
+          "detailed_entry_type"
+        ],
+        "properties": {
+          "detailed_entry_type": {
+            "type": "string",
+            "description": "For some Entrys, we do have more information (what kind of a `lecture` is it? What kind of an other `entry` is it?)",
+            "examples": [
+              "Abhaltung"
+            ]
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "end of the entry",
+            "examples": [
+              "2019-01-01T00:00:00"
+            ]
+          },
+          "entry_type": {
+            "$ref": "#/components/schemas/EventTypeResponse",
+            "description": "What this calendar entry means.\n\nEach of these should be displayed in a different color"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ID of the calendar entry used in TUMonline internally",
+            "examples": [
+              6424
+            ]
+          },
+          "room_code": {
+            "type": "string",
+            "description": "Structured, globaly unique room code\n\nIncluded to enable multi-room calendars.\nFormat: BUILDING.LEVEL.NUMBER",
+            "examples": [
+              "5602.EG.001",
+              "5121.EG.003"
+            ]
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "start of the entry",
+            "examples": [
+              "2018-01-01T00:00:00"
+            ]
+          },
+          "stp_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Lecture-type",
+            "examples": [
+              "Vorlesung mit Zentralübung"
+            ]
+          },
+          "title_de": {
+            "type": "string",
+            "description": "German title of the Entry",
+            "examples": [
+              "Quantenteleportation"
+            ]
+          },
+          "title_en": {
+            "type": "string",
+            "description": "English title of the Entry",
+            "examples": [
+              "Quantum teleportation"
+            ]
+          }
+        }
+      },
+      "EventTypeResponse": {
+        "type": "string",
+        "enum": [
+          "lecture",
+          "exercise",
+          "exam",
+          "barred",
+          "other"
+        ]
+      },
+      "ExtraComputedPropResponse": {
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "examples": [
+              "for exams: 102 in tight, 71 in wide, 49 in corona"
+            ]
+          },
+          "footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "data based on a Survey of chimneysweeps"
+            ]
+          },
+          "header": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "Genauere Angaben"
+            ]
+          }
+        }
+      },
+      "FeaturedOverviewItemResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "subtext",
+          "image_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The id of the entry"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "The thumbnail for the building"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human display name"
+          },
+          "subtext": {
+            "type": "string",
+            "description": "What should be displayed below this Building"
+          }
+        }
+      },
+      "FeaturedOverviewResponse": {
+        "type": "object",
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeaturedOverviewItemResponse"
+            }
+          }
+        }
+      },
+      "FeedbackCategory": {
+        "type": "string",
+        "enum": [
+          "bug",
+          "feature",
+          "search",
+          "navigation",
+          "entry",
+          "general",
+          "other"
+        ]
+      },
+      "FloorResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "short_name",
+          "name",
+          "tumonline",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Virtual ID for sorting\n\n`0` represents the ground floor.\nNumbers above/below represent where they are relative to the ground floor\n\n**WARNING**:\nThis ID is not guaranteed to be stable.\nNot across buildings, nor within a building.",
+            "examples": [
+              -1,
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Longer name of the floor",
+            "examples": [
+              "1st basement floor",
+              "Ground floor",
+              "1st mezzanine, above ground floor"
+            ]
+          },
+          "short_name": {
+            "type": "string",
+            "description": "Short name of the floor",
+            "examples": [
+              "-1",
+              "0",
+              "Z1"
+            ]
+          },
+          "tumonline": {
+            "type": "string",
+            "description": "How TUMonline names the floor",
+            "examples": [
+              "U1",
+              "EG",
+              "Z1"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/FloorType",
+            "description": "Type of floor"
+          }
+        }
+      },
+      "FloorType": {
+        "type": "string",
+        "enum": [
+          "roof",
+          "upper",
+          "semi_upper",
+          "ground",
+          "semi_basement",
+          "basement"
+        ]
+      },
+      "Image": {
+        "type": "object",
+        "required": [
+          "content",
+          "metadata"
+        ],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The image encoded as base64",
+            "contentEncoding": "base64"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ImageMetadata"
+          }
+        }
+      },
+      "ImageInfoResponse": {
+        "type": "object",
+        "description": "The information you need to request Images from the `/cdn/{size}/{id}_{counter}.webp` endpoint",
+        "required": [
+          "name",
+          "author",
+          "license"
+        ],
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/URLRefResponse"
+          },
+          "license": {
+            "$ref": "#/components/schemas/PossibleURLRefResponse"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the image file.\nconsists of {building_id}_{image_id}.webp, where image_id is a counter starting at 0",
+            "examples": [
+              "mi_0.webp"
+            ]
+          }
+        }
+      },
+      "ImageMetadata": {
+        "type": "object",
+        "required": [
+          "author",
+          "license"
+        ],
+        "properties": {
+          "author": {
+            "type": "string",
+            "description": "Who created the image"
+          },
+          "license": {
+            "$ref": "#/components/schemas/Property",
+            "description": "The license under which the image is distributed"
+          },
+          "offsets": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Offsets",
+                "description": "Advanced metadata to control how the image is displayed"
+              }
+            ]
+          }
+        }
+      },
+      "ItineraryResponse": {
+        "type": "object",
+        "required": [
+          "duration",
+          "end_time",
+          "legs",
+          "start_time",
+          "transfer_count"
+        ],
+        "properties": {
+          "duration": {
+            "type": "integer",
+            "format": "int64",
+            "description": "journey duration in seconds"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "journey arrival time"
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MotisLegResponse"
+            },
+            "description": "Journey legs"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "journey departure time"
+          },
+          "transfer_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The number of transfers this trip has."
+          }
+        }
+      },
+      "LimitedHashMap_String_Edit": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "coordinate": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/Coordinate"
+                }
+              ]
+            },
+            "image": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/Image"
+                }
+              ]
+            }
+          }
+        },
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "LocationDetailsResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "type_common_name",
+          "name",
+          "aliases",
+          "parents",
+          "parent_names",
+          "props",
+          "ranking_factors",
+          "sources",
+          "coords",
+          "maps"
+        ],
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "examples": [
+                [
+                  "26503@5406"
+                ]
+              ]
+            },
+            "description": "A list of alternative ids for this entry.\n\nNot to be confused with\n- `id` which is the unique identifier or\n- `visual-id` which is an alternative identifier for the entry (only displayed in the URL)."
+          },
+          "coords": {
+            "$ref": "#/components/schemas/CoordinateResponse",
+            "description": "Coordinate of the location"
+          },
+          "id": {
+            "type": "string",
+            "description": "The id, that was requested",
+            "examples": [
+              "5606.EG.036"
+            ]
+          },
+          "imgs": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ImageInfoResponse"
+            },
+            "description": "The information you need to request Images from the `/cdn/{size}/{id}_{counter}.webp` endpoint\n\nTODO: Sometimes missing, sometimes not.. so weird.."
+          },
+          "maps": {
+            "$ref": "#/components/schemas/MapsResponse",
+            "description": "Print or overlay maps for said location"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the entry in a human-readable form",
+            "examples": [
+              "5606.EG.036 (Büro Fachschaft Mathe Physik Informatik Chemie / MPIC)"
+            ]
+          },
+          "parent_names": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "examples": [
+                [
+                  "Standorte",
+                  "Garching Forschungszentrum",
+                  "Fakultät Mathematik & Informatik (FMI oder MI)",
+                  "Finger 06 (BT06)"
+                ]
+              ]
+            },
+            "description": "The ids of the parents.\n\nThey are ordered as they would appear in a Breadcrumb menu.\nSee `parents` for their actual ids.",
+            "minItems": 1
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "examples": [
+                [
+                  "root",
+                  "garching",
+                  "mi",
+                  "5602"
+                ]
+              ]
+            },
+            "description": "The ids of the parents.\n\nThey are ordered as they would appear in a Breadcrumb menu.\nSee `parent_names` for their human names.",
+            "minItems": 1
+          },
+          "props": {
+            "$ref": "#/components/schemas/PropsResponse",
+            "description": "Data for the info-card table"
+          },
+          "ranking_factors": {
+            "$ref": "#/components/schemas/RankingFactorsResponse"
+          },
+          "redirect_url": {
+            "type": "string",
+            "description": "The url, this item should be displayed at.\n\nPresent on both redirects and normal entries, to allow for the common /view/:id path",
+            "examples": [
+              "/room/5606.EG.036"
+            ]
+          },
+          "sections": {
+            "$ref": "#/components/schemas/SectionsResponse",
+            "description": "Information for different sections on the page like the\n- buildings overview,\n- rooms overview and\n- featured view"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/SourcesResponse",
+            "description": "Where we got our data from, should be displayed at the bottom of any page containing this data"
+          },
+          "type": {
+            "$ref": "#/components/schemas/LocationTypeResponse",
+            "description": "The type of the entry"
+          },
+          "type_common_name": {
+            "type": "string",
+            "description": "The type of the entry in a human-readable form",
+            "examples": [
+              "Büro"
+            ]
+          }
+        }
+      },
+      "LocationEventsResponse": {
+        "type": "object",
+        "required": [
+          "events",
+          "location"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventResponse"
+            }
+          },
+          "location": {
+            "$ref": "#/components/schemas/CalendarLocationResponse"
+          }
+        }
+      },
+      "LocationTypeResponse": {
+        "type": "string",
+        "enum": [
+          "room",
+          "building",
+          "joined_building",
+          "area",
+          "site",
+          "campus",
+          "poi",
+          "other"
+        ]
+      },
+      "ManeuverResponse": {
+        "type": "object",
+        "required": [
+          "type",
+          "instruction",
+          "time_seconds",
+          "length_meters",
+          "begin_shape_index",
+          "end_shape_index",
+          "travel_mode"
+        ],
+        "properties": {
+          "arrive_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Written arrive time instruction\n\nTypically used with a transit maneuver",
+            "examples": [
+              "Arrive: 8:10 AM at 34 St - Herald Sq"
+            ]
+          },
+          "begin_shape_index": {
+            "type": "integer",
+            "description": "Index into the list of shape points for the start of the maneuver",
+            "example": 0,
+            "minimum": 0
+          },
+          "begin_street_names": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "examples": [
+                [
+                  "Josef Fischaber Straße"
+                ]
+              ]
+            },
+            "description": "When present, these are the street names at the beginning (transition point) of the\nnonobvious maneuver (if they are different from the names that are consistent along the\nentire nonobvious maneuver)"
+          },
+          "depart_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Written depart time instruction\n\nTypically used with a transit maneuver",
+            "examples": [
+              "Depart: 8:04 AM from 8 St - NYU"
+            ]
+          },
+          "end_shape_index": {
+            "type": "integer",
+            "description": "Index into the list of shape points for the end of the maneuver",
+            "example": 3,
+            "minimum": 0
+          },
+          "ferry": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` if a ferry is encountered on this maneuver"
+          },
+          "gate": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` if a gate is encountered on this maneuver"
+          },
+          "highway": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` if a highway is encountered on this maneuver"
+          },
+          "instruction": {
+            "type": "string"
+          },
+          "length_meters": {
+            "type": "number",
+            "format": "double",
+            "description": "Maneuver length in meters",
+            "example": 103.01
+          },
+          "rough": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` if the maneuver is unpaved or rough pavement, or has any portions that have rough\npavement"
+          },
+          "roundabout_exit_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The spoke to exit roundabout after entering",
+            "example": 2
+          },
+          "street_names": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "examples": [
+                [
+                  "Münchnerstraße"
+                ]
+              ]
+            },
+            "description": "List of street names that are consistent along the entire nonobvious maneuver"
+          },
+          "time_seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Estimated time along the maneuver in seconds",
+            "example": 201.025
+          },
+          "toll": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` if a toll booth is encountered on this maneuver"
+          },
+          "transit_info": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TransitInfoResponse",
+                "description": "Contains the attributes that describe a specific transit route"
+              }
+            ]
+          },
+          "travel_mode": {
+            "$ref": "#/components/schemas/TravelModeResponse",
+            "description": "Travel mode"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ManeuverTypeResponse"
+          },
+          "verbal_arrive_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text suitable for use as a verbal arrive time instruction\n\nTypically used with a transit maneuver",
+            "examples": [
+              "Arrive at 8:10 AM at 34 St - Herald Sq"
+            ]
+          },
+          "verbal_depart_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text suitable for use as a verbal depart time instruction\n\nTypically used with a transit maneuver",
+            "examples": [
+              "Depart at 8:04 AM from 8 St - NYU"
+            ]
+          },
+          "verbal_multi_cue": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` if `verbal_pre_transition_instruction` has been appended with\nthe verbal instruction of the next maneuver"
+          },
+          "verbal_post_transition_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text suitable for use as a verbal message immediately after the maneuver transition",
+            "examples": [
+              "Continue on U.S. 2 22 for 3.9 miles"
+            ]
+          },
+          "verbal_pre_transition_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text suitable for use as a verbal message immediately prior to the maneuver transition",
+            "examples": [
+              "Turn right onto North Prince Street, U.S. 2 22"
+            ]
+          },
+          "verbal_transition_alert_instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text suitable for use as a verbal alert in a navigation application\n\nThe transition alert instruction will prepare the user for the forthcoming transition",
+            "examples": [
+              "Turn right onto North Prince Street"
+            ]
+          }
+        }
+      },
+      "ManeuverTypeResponse": {
+        "type": "string",
+        "enum": [
+          "none",
+          "start",
+          "start_right",
+          "start_left",
+          "destination",
+          "destination_right",
+          "destination_left",
+          "becomes",
+          "continue",
+          "slight_right",
+          "right",
+          "sharp_right",
+          "uturn_right",
+          "uturn_left",
+          "sharp_left",
+          "left",
+          "slight_left",
+          "ramp_straight",
+          "ramp_right",
+          "ramp_left",
+          "exit_right",
+          "exit_left",
+          "stay_straight",
+          "stay_right",
+          "stay_left",
+          "merge",
+          "roundabout_enter",
+          "roundabout_exit",
+          "ferry_enter",
+          "ferry_exit",
+          "transit",
+          "transit_transfer",
+          "transit_remain_on",
+          "transit_connection_start",
+          "transit_connection_transfer",
+          "transit_connection_destination",
+          "post_transit_connection_destination",
+          "merge_right",
+          "merge_left",
+          "elevator_enter",
+          "steps_enter",
+          "escalator_enter",
+          "building_enter",
+          "building_exit"
+        ]
+      },
+      "MapsResponse": {
+        "type": "object",
+        "required": [
+          "default"
+        ],
+        "properties": {
+          "default": {
+            "$ref": "#/components/schemas/DefaultMapsResponse",
+            "description": "type of the Map that should be shown by default"
+          },
+          "overlays": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OverlayMapsResponse",
+                "description": "`None` would mean no overlay maps are displayed by default.\nFor rooms, you should add a warning that no floor map is available for this room"
+              }
+            ]
+          },
+          "roomfinder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RoomfinderMapResponse"
+              }
+            ]
+          }
+        }
+      },
+      "ModeResponse": {
+        "type": "string",
+        "enum": [
+          "walk",
+          "bike",
+          "rental",
+          "car",
+          "car_parking",
+          "car_dropoff",
+          "odm",
+          "flex",
+          "transit",
+          "tram",
+          "subway",
+          "ferry",
+          "airplane",
+          "metro",
+          "bus",
+          "coach",
+          "rail",
+          "highspeed_rail",
+          "long_distance",
+          "night_rail",
+          "regional_fast_rail",
+          "regional_rail",
+          "cable_car",
+          "funicular",
+          "areal_lift",
+          "other"
+        ]
+      },
+      "MotisLegResponse": {
+        "type": "object",
+        "required": [
+          "duration",
+          "end_time",
+          "from",
+          "to",
+          "leg_geometry",
+          "mode",
+          "real_time",
+          "scheduled",
+          "route_color",
+          "route_text_color",
+          "scheduled_end_time",
+          "scheduled_start_time",
+          "start_time"
+        ],
+        "properties": {
+          "agency_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifies a transit brand which is often synonymous with a transit agency."
+          },
+          "agency_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Full name of the transit agency"
+          },
+          "agency_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL of the transit agency"
+          },
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertResponse"
+            },
+            "description": "Alerts for this stop."
+          },
+          "cancelled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether this trip is cancelled"
+          },
+          "distance": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Distance in meters"
+          },
+          "duration": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Leg duration in seconds\n\nIf leg is footpath:\n  The footpath duration is derived from the default footpath\n  duration using the query parameters `transferTimeFactor` and\n  `additionalTransferTime` as follows:\n  `leg.duration = defaultDuration * transferTimeFactor +\n additionalTransferTime.`  In case the defaultDuration is\n needed, it can be calculated by  `defaultDuration =\n (leg.duration - additionalTransferTime) / transferTimeFactor`.\n  Note that the default values are `transferTimeFactor = 1` and\n  `additionalTransferTime = 0` in case they are not explicitly\n  provided in the query."
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "leg arrival time"
+          },
+          "from": {
+            "$ref": "#/components/schemas/PlaceResponse"
+          },
+          "headsign": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For transit legs, the headsign of the bus or train being used.\nFor non-transit legs, null"
+          },
+          "interline_with_previous_leg": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "For transit legs, if the rider should stay on the vehicle as it\n changes route names."
+          },
+          "intermediate_stops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaceResponse"
+            },
+            "description": "For transit legs, intermediate stops between the Place where the leg\n originates and the Place where the leg ends. For non-transit\n legs, null."
+          },
+          "leg_geometry": {
+            "type": "string",
+            "description": "Polyline geometry (precision 6) of the leg."
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ModeResponse"
+          },
+          "real_time": {
+            "type": "boolean",
+            "description": "Whether there is real-time data about this leg"
+          },
+          "rental": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RentalResponse"
+              }
+            ]
+          },
+          "route_color": {
+            "type": "string",
+            "description": "Route color designation that matches public facing material.\n\nImplementations should default to white (FFFFFF) when omitted or left empty.\nThe color difference between `route_color` and `route_text_color` should provide sufficient contrast when viewed on a black and white screen."
+          },
+          "route_short_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Short name of a route.\n\nOften a short, abstract identifier (e.g., \"32\", \"100X\", \"Green\") that riders use to identify a route"
+          },
+          "route_text_color": {
+            "type": "string",
+            "description": "Legible color to use for text drawn against a background of `route_color`.\n\nImplementations should default to black (000000) when omitted or left empty.\nThe color difference between `route_color` and `route_text_color` should provide sufficient contrast when viewed on a black and white screen."
+          },
+          "route_type": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Indicates the type of transportation used on a route.\n\nAccording to <https://gtfs.org/reference/static/#routestxt> `route_type` Valid options are:\n\n-  0: Tram, Streetcar, Light rail. Any light rail or street level system within a metropolitan area.\n-  1: Subway, Metro. Any underground rail system within a metropolitan area.\n-  2: Rail. Used for intercity or long-distance travel.\n-  3: Bus. Used for short- and long-distance bus routes.\n-  4: Ferry. Used for short- and long-distance boat service.\n-  5: Cable tram. Used for street-level rail cars where the cable runs beneath the vehicle (e.g., cable car in San Francisco).\n-  6: Aerial lift, suspended cable car (e.g., gondola lift, aerial tramway). Cable transport where cabins, cars, gondolas or open chairs are suspended by means of one or more cables.\n-  7: Funicular. Any rail system designed for steep inclines.\n- 11: Trolleybus. Electric buses that draw power from overhead wires using poles.\n- 12: Monorail. Railway in which the track consists of a single rail or a beam."
+          },
+          "scheduled": {
+            "type": "boolean",
+            "description": "Whether this leg was originally scheduled to run or is an additional\n service.\n Scheduled times will equal realtime times in this case."
+          },
+          "scheduled_end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "scheduled leg arrival time"
+          },
+          "scheduled_start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "scheduled leg departure time"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Filename and line number where this trip is from"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "leg departure time"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepInstructionResponse"
+            },
+            "description": "A series of turn by turn instructions\nused for walking, biking and driving."
+          },
+          "to": {
+            "$ref": "#/components/schemas/PlaceResponse"
+          },
+          "trip_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifies a trip"
+          }
+        }
+      },
+      "MotisRoutingResponse": {
+        "type": "object",
+        "required": [
+          "direct",
+          "itineraries",
+          "next_page_cursor",
+          "previous_page_cursor"
+        ],
+        "properties": {
+          "direct": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryResponse"
+            },
+            "description": "Direct trips by `WALK`, `BIKE`, `CAR`, etc. without time-dependency.\n\n The starting time (`arriveBy=false`) / arrival time\n (`arriveBy=true`) is always the queried `time` parameter (set to\n \"now\" if not set). But all `direct` connections are meant\n to be independent of absolute times."
+          },
+          "itineraries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryResponse"
+            },
+            "description": "list of itineraries"
+          },
+          "next_page_cursor": {
+            "type": "string",
+            "description": "Use the cursor to get the next page of results.\n\nInsert the cursor\n into the request and post it to get the next page.\n The next page is a set of itineraries departing AFTER the last\n itinerary in this result."
+          },
+          "previous_page_cursor": {
+            "type": "string",
+            "description": "Use the cursor to get the previous page of results. Insert the\n cursor into the request and post it to get the previous page.\n The previous page is a set of itineraries departing BEFORE the first\n itinerary in the result for a depart after search. When using the\n default sort order the previous set of itineraries is inserted\n before the current result."
+          }
+        }
+      },
+      "NearbyLocationsResponse": {
+        "type": "object",
+        "required": [
+          "public_transport"
+        ],
+        "properties": {
+          "public_transport": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransportationResponse"
+            },
+            "maxItems": 50
+          }
+        }
+      },
+      "Offsets": {
+        "type": "object",
+        "properties": {
+          "header": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "thumb": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "OperatorResponse": {
+        "type": "object",
+        "description": "Operator of a location",
+        "required": [
+          "id",
+          "url",
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "designation code of the operator",
+            "examples": [
+              "TUS7000"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ID of the operator",
+            "examples": [
+              51901
+            ],
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "The full name of the operator (localized). Null for organisations that\n are no longer active (e.g. id=38698), but where the operator has not been\nupdated in TUMonline.",
+            "examples": [
+              "TUM School of Social Sciences and Technology"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "description": "Link to the operator",
+            "examples": [
+              "https://campus.tum.de/tumonline/webnav.navigate_to?corg=51901"
+            ]
+          }
+        }
+      },
+      "OverlayMapEntryResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "floor",
+          "name",
+          "file",
+          "coordinates"
+        ],
+        "properties": {
+          "coordinates": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": false,
+              "prefixItems": [
+                {
+                  "type": "number",
+                  "format": "double"
+                },
+                {
+                  "type": "number",
+                  "format": "double"
+                }
+              ]
+            },
+            "description": "Coordinates are four `[lon, lat]` pairs, for the top left, top right, bottom right, bottom left image corners.",
+            "example": [
+              [
+                11.666739,
+                48.263478
+              ],
+              [
+                11.669666,
+                48.263125
+              ],
+              [
+                11.669222,
+                48.261585
+              ],
+              [
+                11.666331,
+                48.261929
+              ]
+            ],
+            "maxItems": 4,
+            "minItems": 4
+          },
+          "file": {
+            "type": "string",
+            "description": "filename of the map",
+            "example": "webp/rf95.webp"
+          },
+          "floor": {
+            "type": "string",
+            "description": "Floor of the Map.\n\nShould be used for display to the user in selectors.\nMatches the floor part of the TUMonline roomcode.",
+            "example": "EG"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Machine-readable floor-id of the map.\n\nShould start with 0 for the ground level (defined by the main entrance) and increase or decrease.\nIt is not guaranteed that numbers are consecutive or that `1` corresponds to level `01`, because buildings sometimes have more complicated layouts. They are however always in the correct (physical) order.",
+            "example": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "human-readable name of the map",
+            "example": "MI Gebäude (EG)"
+          }
+        }
+      },
+      "OverlayMapsResponse": {
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverlayMapEntryResponse"
+            }
+          },
+          "default": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The floor-id of the map, that should be shown as a default.\nnull means:\n- We suggest, you don't show a map by default.\n- This is only the case for buildings or other such entities and not for rooms, if we know where they are and a map exists",
+            "example": 0
+          }
+        }
+      },
+      "PlaceResponse": {
+        "type": "object",
+        "required": [
+          "lat",
+          "level",
+          "lon",
+          "name"
+        ],
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertResponse"
+            },
+            "description": "Alerts for this stop."
+          },
+          "arrival": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "arrival time"
+          },
+          "cancelled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether this stop is cancelled due to the realtime situation"
+          },
+          "departure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "departure time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "description of the location that provides more detailed information"
+          },
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "level": {
+            "type": "number",
+            "format": "double"
+          },
+          "lon": {
+            "type": "number",
+            "format": "double"
+          },
+          "name": {
+            "type": "string",
+            "description": "name of the transit stop / PoI / address"
+          },
+          "scheduled_arrival": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "scheduled arrival time"
+          },
+          "scheduled_departure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "scheduled departure time"
+          },
+          "scheduled_track": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "scheduled track from the static schedule timetable dataset"
+          },
+          "stop_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The ID of the stop. This is often something that users don't care\n about."
+          },
+          "track": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The current track/platform information, updated with real-time\n updates if available. Can be missing if neither real-time\n updates nor the schedule timetable contains track information."
+          },
+          "vertex_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VertexTypeResponse"
+              }
+            ]
+          }
+        }
+      },
+      "PossibleURLRefResponse": {
+        "type": "object",
+        "description": "A link with a localized link text and url",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PostFeedbackRequest": {
+        "type": "object",
+        "required": [
+          "token",
+          "subject",
+          "body",
+          "privacy_checked",
+          "deletion_requested"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The body/description of the feedback\n\nControll characters will be stripped, too long input truncated and newlines made to render in markdown",
+            "example": "A clear description what happened where and how we should improve it",
+            "maxLength": 1048576,
+            "minLength": 10
+          },
+          "category": {
+            "$ref": "#/components/schemas/FeedbackCategory",
+            "description": "The category of the feedback."
+          },
+          "deletion_requested": {
+            "type": "boolean",
+            "description": "Whether the user has requested to delete the issue.\n\nThis flag means:\n- If the user has requested to delete the issue, we will delete it from GitHub after processing it\n- If the user has not requested to delete the issue, we will not delete it from GitHub and it will remain as a closed issue."
+          },
+          "privacy_checked": {
+            "type": "boolean",
+            "description": "Whether the user has checked the privacy-checkbox.\n\nWe are posting the feedback publicly on GitHub (not a EU-Company).\n**You MUST also include such a checkmark.**"
+          },
+          "subject": {
+            "type": "string",
+            "description": "The subject/title of the feedback\n\nControll characters will be stripped, too long input truncated and newlines made to render in markdown",
+            "example": "A catchy title",
+            "maxLength": 512,
+            "minLength": 4
+          },
+          "token": {
+            "type": "string",
+            "description": "The JWT token, that can be used to generate feedback",
+            "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2Njk2MzczODEsImlhdCI6MTY2OTU5NDE4MSwibmJmIjoxNjY5NTk0MTkxLCJraWQiOjE1ODU0MTUyODk5MzI0MjU0Mzg2fQ.sN0WwXzsGhjOVaqWPe-Fl5x-gwZvh28MMUM-74MoNj4"
+          }
+        }
+      },
+      "Property": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PropsResponse": {
+        "type": "object",
+        "description": "Data for the info-card table",
+        "required": [
+          "computed"
+        ],
+        "properties": {
+          "calendar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Link to the calendar of the room",
+            "examples": [
+              "https://campus.tum.de/tumonline/tvKalender.wSicht?cOrg=19691&cRes=12543&cReadonly=J",
+              "https://campus.tum.de/tumonline/tvKalender.wSicht?cOrg=19691&cRes=12559&cReadonly=J"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "description": "A comment to show to an entry.\n\nIt is used in the rare cases, where some aspect about the room/.. or its translation are misleading."
+          },
+          "computed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComputedPropResponse"
+            }
+          },
+          "floors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FloorResponse"
+            },
+            "description": "A sorted (lowest floor first) list of floors\n\nFor buildings, this may contain multiple floors while rooms usually only have one floor."
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PossibleURLRefResponse"
+            }
+          },
+          "operator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OperatorResponse",
+                "description": "The operator of the room"
+              }
+            ]
+          }
+        }
+      },
+      "RankingFactorsResponse": {
+        "type": "object",
+        "required": [
+          "rank_combined",
+          "rank_type",
+          "rank_usage"
+        ],
+        "properties": {
+          "rank_boost": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "rank_combined": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "rank_custom": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "rank_type": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "rank_usage": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "RentalFormFactorResponse": {
+        "type": "string",
+        "enum": [
+          "bicycle",
+          "cargo_bicycle",
+          "car",
+          "moped",
+          "scooter_standing",
+          "scooter_seated",
+          "other"
+        ]
+      },
+      "RentalResponse": {
+        "type": "object",
+        "required": [
+          "system_id"
+        ],
+        "properties": {
+          "form_factor": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RentalFormFactorResponse"
+              }
+            ]
+          },
+          "from_station_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the station where the vehicle is picked up (empty for free\n floating vehicles)"
+          },
+          "rental_uri_android": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Rental URI for Android (deep link to the specific station or\n vehicle)"
+          },
+          "rental_uri_ios": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Rental URI for iOS (deep link to the specific station or vehicle)"
+          },
+          "rental_uri_web": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Rental URI for web (deep link to the specific station or vehicle)"
+          },
+          "station_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the station"
+          },
+          "system_id": {
+            "type": "string",
+            "description": "Vehicle share system ID"
+          },
+          "system_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Vehicle share system name"
+          },
+          "to_station_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the station where the vehicle is returned (empty for free\n floating vehicles)"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL of the vehicle share system"
+          }
+        }
+      },
+      "ResultEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "subtext"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The id of the location",
+            "example": "5510.03.002"
+          },
+          "name": {
+            "type": "string",
+            "description": "Subtext to show below the search result.\n\nUsually contains the context of where this rooms is located in.\nCurrently not highlighted.",
+            "example": "5510.03.002 (\u0019MW\u0017 2001, Empore)"
+          },
+          "parsed_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "This is an optional feature, that is only supported for some rooms.\n\nIt might be displayed instead or before the name, to show that a different room id format has matched, that was probably used.\nSee the image below for an example.\nIt will be cropped to a maximum length to not take too much space in UIs.\nSupports highlighting."
+          },
+          "subtext": {
+            "type": "string",
+            "description": "Subtext to show below the search result.\n\nUsually contains the context of where this rooms is located in.\nCurrently not highlighted.",
+            "example": "Maschinenwesen (MW)"
+          },
+          "subtext_bold": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Subtext to show below the search (by default in bold and after the non-bold subtext).\n\nUsually contains the arch-id of the room, which is another common room id format, and supports highlighting.",
+            "example": "3002@5510"
+          },
+          "type": {
+            "type": "string",
+            "description": "the type of the site/building",
+            "example": "room"
+          }
+        }
+      },
+      "ResultFacet": {
+        "type": "string",
+        "enum": [
+          "sites_buildings",
+          "rooms",
+          "addresses"
+        ]
+      },
+      "ResultsSection": {
+        "type": "object",
+        "required": [
+          "facet",
+          "entries",
+          "n_visible",
+          "estimatedTotalHits"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultEntry"
+            }
+          },
+          "estimatedTotalHits": {
+            "type": "integer",
+            "description": "The estimated (not exact) number of hits for that query",
+            "example": 6,
+            "minimum": 0
+          },
+          "facet": {
+            "$ref": "#/components/schemas/ResultFacet",
+            "description": "These indicate the type of item this represents"
+          },
+          "n_visible": {
+            "type": "integer",
+            "description": "A recommendation how many of the entries should be displayed by default.\n\nThe number is usually from `0`..`5`.\nMore results might be displayed when clicking \"expand\".",
+            "example": 4,
+            "minimum": 0
+          }
+        }
+      },
+      "RoomfinderMapEntryResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "id",
+          "scale",
+          "height",
+          "width",
+          "x",
+          "y",
+          "source",
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Where the map is stored"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Map image y dimensions"
+          },
+          "id": {
+            "type": "string",
+            "description": "machine-readable name of the map"
+          },
+          "name": {
+            "type": "string",
+            "description": "human-readable name of the map"
+          },
+          "scale": {
+            "type": "string",
+            "description": "Scale of the map. 2000 means 1:2000"
+          },
+          "source": {
+            "type": "string",
+            "description": "Where the map was imported from"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Map image y dimensions"
+          },
+          "x": {
+            "type": "integer",
+            "format": "int32",
+            "description": "x Position on map image"
+          },
+          "y": {
+            "type": "integer",
+            "format": "int32",
+            "description": "y Position on map image"
+          }
+        }
+      },
+      "RoomfinderMapResponse": {
+        "type": "object",
+        "required": [
+          "default",
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomfinderMapEntryResponse"
+            }
+          },
+          "default": {
+            "type": "string",
+            "description": "The id of the map, that should be shown as a default",
+            "examples": [
+              "rf142"
+            ]
+          }
+        }
+      },
+      "RoomsOverviewResponse": {
+        "type": "object",
+        "required": [
+          "usages"
+        ],
+        "properties": {
+          "usages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomsOverviewUsageResponse"
+            }
+          }
+        }
+      },
+      "RoomsOverviewUsageChildResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RoomsOverviewUsageResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "count",
+          "children"
+        ],
+        "properties": {
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomsOverviewUsageChildResponse"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RoutingResponse": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValhallaRoutingResponse"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "router"
+                ],
+                "properties": {
+                  "router": {
+                    "type": "string",
+                    "enum": [
+                      "valhalla"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MotisRoutingResponse"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "router"
+                ],
+                "properties": {
+                  "router": {
+                    "type": "string",
+                    "enum": [
+                      "motis"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "SearchResponse": {
+        "type": "object",
+        "description": "Returned search results by this",
+        "required": [
+          "sections",
+          "time_ms"
+        ],
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultsSection"
+            }
+          },
+          "time_ms": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Time the search took in the server side, not including network delay\n\nMaximum as timeout.\nother timeouts (browser, your client) may be smaller.\nExpected average is `10`..`50` for uncached, regular requests.",
+            "example": 8,
+            "minimum": 0
+          }
+        }
+      },
+      "SectionsResponse": {
+        "type": "object",
+        "properties": {
+          "buildings_overview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BuildingsOverviewResponse"
+              }
+            ]
+          },
+          "featured_overview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FeaturedOverviewResponse"
+              }
+            ]
+          },
+          "rooms_overview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RoomsOverviewResponse"
+              }
+            ]
+          }
+        }
+      },
+      "SourceResponse": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the provider",
+            "example": "NavigaTUM"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Url of the provider",
+            "example": "https://nav.tum.de"
+          }
+        }
+      },
+      "SourcesResponse": {
+        "type": "object",
+        "description": "Where we got our data from, should be displayed at the bottom of any page containing this data",
+        "required": [
+          "base"
+        ],
+        "properties": {
+          "base": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceResponse"
+            },
+            "description": "What is the basis of the data we have"
+          },
+          "patched": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Was this entry patched by us? (e.g. to fix a typo in the name/...)\nIf so, we should not display the source, as it is not the original source."
+          }
+        }
+      },
+      "StepInstructionResponse": {
+        "type": "object",
+        "required": [
+          "area",
+          "distance",
+          "exit",
+          "from_level",
+          "polyline",
+          "relative_direction",
+          "stay_on",
+          "street_name",
+          "to_level"
+        ],
+        "properties": {
+          "access_restriction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Experimental. Indicates whether access to this part of the route is\nrestricted.\nSee: <https://wiki.openstreetmap.org/wiki/Conditional_restrictions>"
+          },
+          "area": {
+            "type": "boolean",
+            "description": "Not implemented!\nThis step is on an open area, such as a plaza or train platform,\nand thus the directions should say something like \"cross\""
+          },
+          "distance": {
+            "type": "number",
+            "format": "double"
+          },
+          "elevation_down": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "decline in meters across this path segment"
+          },
+          "elevation_up": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "incline in meters across this path segment"
+          },
+          "exit": {
+            "type": "string",
+            "description": "Not implemented!\nWhen exiting a highway or traffic circle, the exit name/number."
+          },
+          "from_level": {
+            "type": "number",
+            "format": "double"
+          },
+          "osm_way": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "OpenStreetMap way index"
+          },
+          "polyline": {
+            "type": "string",
+            "description": "Polyline geometry (precision 6) of the leg."
+          },
+          "relative_direction": {
+            "$ref": "#/components/schemas/DirectionResponse"
+          },
+          "stay_on": {
+            "type": "boolean",
+            "description": "Indicates whether or not a street changes direction at an\n intersection."
+          },
+          "street_name": {
+            "type": "string",
+            "description": "The name of the street."
+          },
+          "to_level": {
+            "type": "number",
+            "format": "double"
+          },
+          "toll": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Indicates that a fee must be paid by general traffic to use a road,\n road bridge or road tunnel."
+          }
+        }
+      },
+      "SummaryResponse": {
+        "type": "object",
+        "required": [
+          "time_seconds",
+          "length_meters",
+          "has_toll",
+          "has_highway",
+          "has_ferry",
+          "min_lat",
+          "min_lon",
+          "max_lat",
+          "max_lon"
+        ],
+        "properties": {
+          "has_ferry": {
+            "type": "boolean",
+            "description": "if the path uses one or more ferry segments"
+          },
+          "has_highway": {
+            "type": "boolean",
+            "description": "If the path uses one or more highway segments"
+          },
+          "has_toll": {
+            "type": "boolean",
+            "description": "If the path uses one or more toll segments"
+          },
+          "length_meters": {
+            "type": "number",
+            "format": "double",
+            "description": "Distance traveled in meters",
+            "example": 103.01
+          },
+          "max_lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Maximum latitude of the sections bounding box",
+            "example": 48.26244490906312
+          },
+          "max_lon": {
+            "type": "number",
+            "format": "double",
+            "description": "Maximum longitude of the sections bounding box",
+            "example": 48.26244490906312
+          },
+          "min_lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Minimum latitude of the sections bounding box",
+            "example": 48.26244490906312
+          },
+          "min_lon": {
+            "type": "number",
+            "format": "double",
+            "description": "Minimum longitude of the sections bounding box",
+            "example": 48.26244490906312
+          },
+          "time_seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Estimated elapsed time in seconds",
+            "example": 201.025
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "required": [
+          "created_at",
+          "token"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp of when the token was created",
+            "example": "1629564181"
+          },
+          "token": {
+            "type": "string",
+            "description": "The JWT token, that can be used to generate feedback",
+            "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2Njk2MzczODEsImlhdCI6MTY2OTU5NDE4MSwibmJmIjoxNjY5NTk0MTkxLCJraWQiOjE1ODU0MTUyODk5MzI0MjU0Mzg2fQ.sN0WwXzsGhjOVaqWPe-Fl5x-gwZvh28MMUM-74MoNj4"
+          }
+        }
+      },
+      "TransitInfoResponse": {
+        "type": "object",
+        "required": [
+          "onestop_id",
+          "short_name",
+          "long_name",
+          "headsign",
+          "color",
+          "text_color",
+          "description",
+          "operator_onestop_id",
+          "operator_name",
+          "operator_url",
+          "transit_stops"
+        ],
+        "properties": {
+          "color": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The numeric color value associated with a transit route\n\nThe value for yellow would be `16567306`",
+            "examples": [
+              16567306
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "The description of the transit route",
+            "examples": [
+              "Trains operate from Ditmars Boulevard, Queens, to Stillwell Avenue, Brooklyn, at all times\nN trains in Manhattan operate along Broadway and across the Manhattan Bridge to and from Brooklyn.\nTrains in Brooklyn operate along 4th Avenue, then through Borough Park to Gravesend.\nTrains typically operate local in Queens, and either express or local in Manhattan and Brooklyn,\ndepending on the time. Late night trains operate via Whitehall Street, Manhattan.\nLate night service is local"
+            ]
+          },
+          "headsign": {
+            "type": "string",
+            "description": "The sign on a public transport vehicle that identifies the route destination to passengers",
+            "examples": [
+              "ASTORIA - DITMARS BLVD"
+            ]
+          },
+          "long_name": {
+            "type": "string",
+            "description": "Long name describing the transit route",
+            "examples": [
+              "Broadway Express"
+            ]
+          },
+          "onestop_id": {
+            "type": "string",
+            "description": "Global transit route identifier\n\n**Tipp:** you use these as feed-ids in transitland.\nExample: <https://www.transit.land/feeds/f-9q9-bart>",
+            "examples": [
+              "f-9q9-bart",
+              "f-zeus~schwäbisch~gmünd~gbfs"
+            ]
+          },
+          "operator_name": {
+            "type": "string",
+            "description": "Operator/agency name\n\nShort name is used over long name",
+            "examples": [
+              "BART",
+              "King County Marine Division",
+              "Münchner Verkehrs- und Tarifverbund (MVV)"
+            ]
+          },
+          "operator_onestop_id": {
+            "type": "string",
+            "description": "Global operator/agency identifier\n\n**Tipp:** you use these as feed-ids in transitland.\nExample: <https://www.transit.land/feeds/o-u281z9-mvv>",
+            "examples": [
+              "o-u281z9-mvv"
+            ]
+          },
+          "operator_url": {
+            "type": "string",
+            "description": "Operator/agency URL",
+            "examples": [
+              "http://web.mta.info/",
+              "http://www.mvv-muenchen.de/"
+            ]
+          },
+          "short_name": {
+            "type": "string",
+            "description": "Short name describing the transit route",
+            "examples": [
+              "N"
+            ]
+          },
+          "text_color": {
+            "type": "string",
+            "description": "The numeric text color value associated with a transit route\n\nThe value for black would be `0`",
+            "examples": [
+              0
+            ]
+          },
+          "transit_stops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransitStopResponse"
+            },
+            "description": "A list of the stops/stations associated with a specific transit route"
+          }
+        }
+      },
+      "TransitStopResponse": {
+        "type": "object",
+        "required": [
+          "type",
+          "name",
+          "arrival_date_time",
+          "departure_date_time",
+          "is_parent_stop",
+          "assumed_schedule",
+          "lat",
+          "lon"
+        ],
+        "properties": {
+          "arrival_date_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Arrival date and time"
+          },
+          "assumed_schedule": {
+            "type": "boolean",
+            "description": "`true` if the times are based on an assumed schedule because the actual schedule is not known"
+          },
+          "departure_date_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Departure date and time"
+          },
+          "is_parent_stop": {
+            "type": "boolean",
+            "description": "`true` if this stop is a marked as a parent stop"
+          },
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Latitude of the transit stop in degrees",
+            "example": 48.26244490906312
+          },
+          "lon": {
+            "type": "number",
+            "format": "double",
+            "description": "Longitude of the transit stop in degrees",
+            "example": 48.26244490906312
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the stop or station",
+            "examples": [
+              "14 St - Union Sq"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransitStopTypeResponse"
+          }
+        }
+      },
+      "TransitStopTypeResponse": {
+        "type": "string",
+        "enum": [
+          "stop",
+          "station"
+        ]
+      },
+      "TransportationResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "lat",
+          "lon",
+          "distance_meters"
+        ],
+        "properties": {
+          "distance_meters": {
+            "type": "number",
+            "format": "double",
+            "exclusiveMaximum": 1000,
+            "exclusiveMinimum": 0
+          },
+          "id": {
+            "type": "string",
+            "description": "The globally unique and somewhat stable id of the station from the transport agency",
+            "example": "de:09184:2073:0:1"
+          },
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Latitude",
+            "example": 48.26244490906312
+          },
+          "lon": {
+            "type": "number",
+            "format": "double",
+            "description": "Longitude",
+            "example": 48.26244490906312
+          },
+          "name": {
+            "type": "string",
+            "description": "How the station was named by the operator",
+            "example": "Garching, Boltzmannstraße"
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The globally unique and somewhat stable id of the station from the transport agency",
+            "example": "de:09184:2073"
+          },
+          "parent_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How the station was named by the operator",
+            "example": "Boltzmannstraße"
+          }
+        }
+      },
+      "TravelModeResponse": {
+        "type": "string",
+        "enum": [
+          "drive",
+          "pedestrian",
+          "bicycle",
+          "public_transit"
+        ]
+      },
+      "URLRefResponse": {
+        "type": "object",
+        "description": "A link with a localized link text and url",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ValhallaLegResponse": {
+        "type": "object",
+        "required": [
+          "summary",
+          "maneuvers",
+          "shape"
+        ],
+        "properties": {
+          "maneuvers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManeuverResponse"
+            }
+          },
+          "shape": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SummaryResponse"
+          }
+        }
+      },
+      "ValhallaRoutingResponse": {
+        "type": "object",
+        "required": [
+          "legs",
+          "summary"
+        ],
+        "properties": {
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValhallaLegResponse"
+            },
+            "description": "A trip contains one (or more) legs.\n\nA leg is created when routing stops, which currently only happens at the ends (`from`, `to`).",
+            "maxItems": 1,
+            "minItems": 1
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SummaryResponse",
+            "description": "Trip summary"
+          }
+        }
+      },
+      "VertexTypeResponse": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "bikeshare",
+          "transit"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "locations",
+      "description": "API to access/search for location information"
+    },
+    {
+      "name": "calendar",
+      "description": "APIs to access calendar-data"
+    },
+    {
+      "name": "feedback",
+      "description": "APIs to give feedback"
+    },
+    {
+      "name": "maps",
+      "description": "API to access for map-data"
+    }
+  ],
+  "externalDocs": {
+    "url": "https://github.com/TUM-Dev/navigatum",
+    "description": "Visit our GitHub Page for more in-depth documentation"
+  },
+  "$schema": "http://json-schema.org/draft-07/schema"
+}
